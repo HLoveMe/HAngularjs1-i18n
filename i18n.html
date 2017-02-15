@@ -25,7 +25,7 @@ angular.module('ionApp', ['ionic'])
             $scope.index=1+$scope.index;
         }
 })
-//配置语言
+ //配置语言
   .factory("LanguageConfig", function ($rootScope) {
     var languages = {
       china_cn: "zh-cn",
@@ -47,6 +47,13 @@ angular.module('ionApp', ['ionic'])
         return config._language;
       },
       setLanguage: function (lan) {
+        if(typeof lan =="function"){
+          lan =  lan(config.languages());
+          if(typeof lan != "string"){
+            console.log("函数 必须指定语言")
+            return ;
+          }
+        }
         for (var one in languages) {
           if (languages[one] === lan) {
             config._language = lan;
@@ -66,6 +73,7 @@ angular.module('ionApp', ['ionic'])
         $rootScope.$broadcast("language.PathConfig")
       },
       _rollBack:function (lan) {
+        config._language=lan;
         localStorage.setItem("language",lan);
         $rootScope.$broadcast("language.switch")
       }
@@ -189,6 +197,7 @@ angular.module('ionApp', ['ionic'])
           console.log(tEle[0])
           var result = i18nServer.getShowText(key,element[0]);
           if (typeof result == 'string') {
+
             element[0].innerText=result;
           } else {
             result.then(function (res) {
@@ -198,7 +207,7 @@ angular.module('ionApp', ['ionic'])
         }
       }
     }
-  })
+  });
   // .filter("i18n",function (i18nServer) {
   //     return function (args,key) {
   //       if(typeof  key == "undefined"){
@@ -223,6 +232,7 @@ angular.module('ionApp', ['ionic'])
  *
  *  切换语言  默认为"zh-cn"
  *    LanguageConfig.setLanguage("en-us")
+ *    //LanguageConfig.setLanguage(function(lans){return ""})
  *
  *  通知:
  *    "language.switchFinish"  完成
