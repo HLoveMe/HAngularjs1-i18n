@@ -2,10 +2,15 @@
 
  
  *  设置语言文件路径
+     
      LanguageConfig.configLanguagePath("./js/a.json")
+
+     
  
  *  切换语言  默认为"zh-cn"
+     
      LanguageConfig.setLanguage("en-us")
+     LanguageConfig.setLanguage(func(lans){return ""})
  
  *  通知:
      "language.switchFinish"  完成
