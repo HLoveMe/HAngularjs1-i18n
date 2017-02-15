@@ -25,7 +25,7 @@ angular.module('ionApp', ['ionic'])
             $scope.index=1+$scope.index;
         }
 })
- //配置语言
+   //配置语言
   .factory("LanguageConfig", function ($rootScope) {
     var languages = {
       china_cn: "zh-cn",
@@ -47,8 +47,9 @@ angular.module('ionApp', ['ionic'])
         return config._language;
       },
       setLanguage: function (lan) {
+        var privous = localStorage.getItem("language");
         if(typeof lan =="function"){
-          lan =  lan(config.languages());
+          lan =  lan(config.languages(),privous);
           if(typeof lan != "string"){
             console.log("函数 必须指定语言")
             return ;
@@ -57,7 +58,7 @@ angular.module('ionApp', ['ionic'])
         for (var one in languages) {
           if (languages[one] === lan) {
             config._language = lan;
-            var privous = localStorage.getItem("language");
+
             localStorage.setItem("language",lan);
             $rootScope.$broadcast("language.switch",function () {
                 //国际化错误 进行回滚
@@ -232,7 +233,7 @@ angular.module('ionApp', ['ionic'])
  *
  *  切换语言  默认为"zh-cn"
  *    LanguageConfig.setLanguage("en-us")
- *    //LanguageConfig.setLanguage(function(lans){return ""})
+ *     LanguageConfig.setLanguage(func(lans,cu){return ""})
  *
  *  通知:
  *    "language.switchFinish"  完成
@@ -257,6 +258,7 @@ angular.module('ionApp', ['ionic'])
  *    ====>   <p ng-transclude="" i18n="name" class="test">name</p>
  *
  * */
+
 
 </script>
 </html>
