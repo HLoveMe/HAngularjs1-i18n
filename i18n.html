@@ -1,0 +1,252 @@
+<html ng-app="ionApp">
+
+<head>
+    <meta charset="utf-8">
+    <link href="./ionic.css" rel="stylesheet">
+    <script type="text/javascript" src="./ionic.bundle.js"></script>
+</head>
+<body ng-controller="firstCtrl">
+    <a i18n="name">AA</a>  文件读取问题
+    <div class="button" ng-click="qiehuan()">切换</div>
+</body>
+<script type="text/javascript">
+angular.module('ionApp', ['ionic'])
+.run(function(LanguageConfig){
+    LanguageConfig.configLanguagePath("./internationalization.json");
+})
+.controller('firstCtrl', function($scope,LanguageConfig){
+        $scope.index=0;
+        $scope.qiehuan=function(){
+            if($scope.index % 2 ==0){
+                LanguageConfig.setLanguage("en-us")
+            }else{
+                LanguageConfig.setLanguage("zh-cn")
+            }
+            $scope.index=1+$scope.index;
+        }
+})
+//配置语言
+  .factory("LanguageConfig", function ($rootScope) {
+    var languages = {
+      china_cn: "zh-cn",
+      china_tw: "zh-tw",
+      english: "en-us",
+      japan: "ja-jp"
+    };
+    var config = {
+      _language: "",
+      i18nPath: "./js/b.json",
+      languages: function () {
+        var  res=[];
+        for (var one in languages){
+          res.push(languages[one]);
+        }
+        return res;
+      },
+      currentLanguage: function () {
+        return config._language;
+      },
+      setLanguage: function (lan) {
+        for (var one in languages) {
+          if (languages[one] === lan) {
+            config._language = lan;
+            var privous = localStorage.getItem("language");
+            localStorage.setItem("language",lan);
+            $rootScope.$broadcast("language.switch",function () {
+                //国际化错误 进行回滚
+               config._rollBack(privous);
+            });
+            return;
+          }
+        }
+        console.log("你设置的语言不存在: LanguageConfig.languages")
+      },
+      configLanguagePath: function (path) {
+        config.i18nPath = path;
+        $rootScope.$broadcast("language.PathConfig")
+      },
+      _rollBack:function (lan) {
+        localStorage.setItem("language",lan);
+        $rootScope.$broadcast("language.switch")
+      }
+    };
+    //设置本地语言
+    var lan =  localStorage.getItem("language")
+    if(!lan){
+      lan="zh-cn";
+      localStorage.setItem("language",lan);
+    }
+    config._language = lan;
+    return config;
+  })
+  //加载语言文件   提供对应结果   进行语言切换
+  .factory("i18nServer", function ($ionicPlatform, $http, LanguageConfig, $rootScope, $q, $state) {
+    var server = {
+      data: null,
+      pool: {},//{"setting":[]} 保存着需要处理的所有国际化对象
+      switchlanguage:function () {
+        for (var one in server.pool){
+          server.pool[one].forEach(function (value) {
+            var res = server.getShowText(value.key);
+            value.target.innerText=res;
+          })
+        }
+        $rootScope.$broadcast("language.switchFinish")
+      },
+      temp:{},// 在国际化文件得到之前需要国际化的目标
+      getLanguageData: function () {
+        var de = $q.defer();
+        $http.get(LanguageConfig.i18nPath).then(function (resopnse) {
+          server.data = resopnse.data;
+          de.resolve();
+        }, function () {
+          server.data = {};
+          console.log("你所配置的语言文件是错误的")
+        });
+        return de.promise;
+      },
+      getShowText: function (key,ele) {
+        var currentState = $state.current.name;
+        if(ele){
+          var tars = server.pool[currentState];
+          if (!(tars)) {tars = [];server.pool[currentState] = tars;}//创建
+          tars.push({target:ele,key:key})
+        }
+        if (server.data) {
+          //数据已经得到
+          //保存需要国际化标签
+
+          var cureentData = server.data[LanguageConfig.currentLanguage()];
+          var i18n = cureentData[key];
+          return i18n ? i18n : key;
+        } else {
+          //数据寒没有得到
+          var de = $q.defer();
+          var tars = server.temp[currentState];
+          if (!(tars)) {tars = [];server.temp[currentState] = tars;}//创建
+          tars.push({defer: de, key: key});
+          return de.promise;
+        }
+      }
+    };
+    server.getLanguageData().then(function () {
+      //第一次加载数据  处理在加载数据前的国际化
+      for (var pro in server.temp) {
+        server.temp[pro].forEach(function (value) {
+          value.defer.resolve(server.getShowText(value.key));
+        });
+      }
+      server.temp = {};
+    });
+
+    //注册事件(手动配置) 多语言路径
+    $rootScope.$on("language.PathConfig", function () {
+      //获取数据
+      server.getLanguageData().then(function () {
+        //变化语言
+        server.switchlanguage();
+      });
+
+    });
+    //注册语文切换事件
+    $rootScope.$on("language.switch", function (event,errorback) {
+      console.log("切换语言");
+      try{
+        server.switchlanguage();
+        $rootScope.$broadcast("language.switchFinish");
+      }catch (e){
+        $rootScope.$broadcast("language.switchFail");
+        if(errorback){
+          errorback();
+        }
+      }
+    });
+    //页面销毁
+    $ionicPlatform.ready(function () {
+      $rootScope.$on("$ionicView.unloaded",function (event,statu) {
+        //根据销毁的路由状态删除对应的国际化对象
+        delete server.pool[statu["stateName"]];
+      })
+    });
+    return server;
+  })
+  .directive("i18n", function (i18nServer) {
+    return {
+      restrict: "A",
+      template:function (eles,attrs) {
+        console.log(eles);
+        var nodeName = eles[0].nodeName.toLowerCase();
+        return "<"+ nodeName+" ng-transclude ></"+nodeName+">";
+      },
+      transclude: true,
+      replace: true,
+      compile: function (tEle, tAttrs, transcludeFn) {
+        //得到对应的key值
+        var key = tAttrs["i18n"];
+        var isTextKey = typeof key == "string" && key.length >= 1;
+        return function (scope, element, attrs) {
+          if (!isTextKey) {key = element[0].innerText;}
+          console.log(tEle[0])
+          var result = i18nServer.getShowText(key,element[0]);
+          if (typeof result == 'string') {
+            element[0].innerText=result;
+          } else {
+            result.then(function (res) {
+              element[0].innerHTML=res;
+            })
+          }
+        }
+      }
+    }
+  })
+  // .filter("i18n",function (i18nServer) {
+  //     return function (args,key) {
+  //       if(typeof  key == "undefined"){
+  //           key = args;
+  //       }
+  //       var res = i18nServer.getShowText(key);
+  //       console.log(res)
+  //
+  //
+  //       console.log(key)
+  //       console.log(args)
+  //
+  //
+  //       return  "AAA";
+  //     }
+  // });
+
+/**
+ *
+ *  设置语言文件路径
+ *    LanguageConfig.configLanguagePath("./js/a.json")
+ *
+ *  切换语言  默认为"zh-cn"
+ *    LanguageConfig.setLanguage("en-us")
+ *
+ *  通知:
+ *    "language.switchFinish"  完成
+ *    "language.switchFail"    失败
+ *
+ *  标签
+ *    <div class='test' i18n="name"  >zz</div>  使用 'name' 作为key  获取对应值改变 zz
+ *    <a class="button" i18n         >city</a>     使用  'city' 作为key
+ *
+ *  历史记录
+ *    在改变语言后 会使用  localStorage.setItem("language",lan); 记录当前语言
+ *    在下次使用 会使用该记录为启动语言
+ *
+ *  错误说明
+ *    在切换语言失败后 自动回滚到之前的语言
+ *
+ *    说明 i18n 所在标签 智能选择标签
+ *    <div i18n="name" class='test' >zz</div>
+ *    ====>   <div ng-transclude="" i18n="name" class="test">name</div>
+ *
+ *    <p i18n="name" class='tpest' >zz</p>
+ *    ====>   <p ng-transclude="" i18n="name" class="test">name</p>
+ *
+ * */
+
+</script>
+</html>

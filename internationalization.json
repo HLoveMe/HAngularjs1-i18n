@@ -1,0 +1,21 @@
+{
+  "zh-cn":{
+    "name":"名字",
+    "city":"城市",
+    "language":"切换"
+  },
+  "zh-tw":{
+    "name":"名字繁体",
+    "city":"城市繁体",
+    "language":"切换繁体"
+  },
+  "en-us":{
+    "name":"name",
+    "age":"age",
+    "language":"切换en"
+  },
+  "ja-jp":{
+    "name":"name",
+    "age":"年齢-日"
+  }
+}
